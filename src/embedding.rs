@@ -49,14 +49,24 @@ impl EmbeddingExtractor {
     }
 
     pub fn extract(&mut self, samples: &[i16], sample_rate: u32) -> Result<Embedding> {
+        let mut samples_f32 = vec![0.0; samples.len()];
+        normalize_i16_to_f32(samples, &mut samples_f32);
+        self.extract_from_f32(&samples_f32, sample_rate)
+    }
+
+    pub fn extract_f32(&mut self, samples: &[f32], sample_rate: u32) -> Result<Embedding> {
+        self.extract_from_f32(samples, sample_rate)
+    }
+
+    fn extract_from_f32(&mut self, samples: &[f32], sample_rate: u32) -> Result<Embedding> {
         if sample_rate == 0 {
             bail!("sample_rate cannot be zero");
         }
+        if samples.is_empty() {
+            bail!("samples cannot be empty");
+        }
 
-        let mut samples_f32 = vec![0.0; samples.len()];
-        normalize_i16_to_f32(samples, &mut samples_f32);
         let sample_rate = sample_rate as f32;
-
         let mut fbank_opts = FbankOptions::default();
         fbank_opts.mel_opts.num_bins = 80;
         fbank_opts.use_energy = false;
@@ -70,7 +80,7 @@ impl EmbeddingExtractor {
 
         let fbank = FbankComputer::new(fbank_opts).map_err(|e| eyre!(e))?;
         let mut online_feature = OnlineFeature::new(FeatureComputer::Fbank(fbank));
-        online_feature.accept_waveform(sample_rate, &samples_f32);
+        online_feature.accept_waveform(sample_rate, samples);
         online_feature.input_finished();
 
         let frames = online_feature.features;

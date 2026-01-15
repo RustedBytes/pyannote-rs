@@ -136,6 +136,11 @@ impl Segmenter {
     pub fn segments(&mut self, samples: &[i16], sample_rate: u32) -> Result<Vec<Segment>> {
         self.iter_segments(samples, sample_rate)?.collect()
     }
+
+    pub fn segments_f32(&mut self, samples: &[f32], sample_rate: u32) -> Result<Vec<Segment>> {
+        let converted = f32_to_i16(samples);
+        self.segments(&converted, sample_rate)
+    }
 }
 
 fn pad_to_window(samples: &[i16], window_size: usize) -> Vec<i16> {
@@ -174,6 +179,25 @@ pub fn get_segments<P: AsRef<Path>>(
 ) -> Result<Vec<Segment>> {
     let mut segmenter = Segmenter::new(model_path)?;
     segmenter.segments(samples, sample_rate)
+}
+
+pub fn get_segments_f32<P: AsRef<Path>>(
+    samples: &[f32],
+    sample_rate: u32,
+    model_path: P,
+) -> Result<Vec<Segment>> {
+    let mut segmenter = Segmenter::new(model_path)?;
+    segmenter.segments_f32(samples, sample_rate)
+}
+
+fn f32_to_i16(samples: &[f32]) -> Vec<i16> {
+    samples
+        .iter()
+        .map(|s| {
+            let clipped = s.clamp(-1.0, 1.0);
+            (clipped * i16::MAX as f32) as i16
+        })
+        .collect()
 }
 
 #[cfg(test)]
