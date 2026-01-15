@@ -1,5 +1,5 @@
 use crate::session;
-use eyre::{bail, Context, ContextCompat, Result};
+use eyre::{Context, ContextCompat, Result, bail};
 use ndarray::{ArrayBase, Axis, IxDyn, ViewRepr};
 use std::{cmp::Ordering, collections::VecDeque, path::Path};
 
@@ -75,9 +75,11 @@ pub fn get_segments<P: AsRef<Path>>(
             let array = array.view().insert_axis(Axis(0)).insert_axis(Axis(1));
 
             // Handle potential errors during the session and input processing
-            let inputs = ort::inputs![ort::value::TensorRef::from_array_view(array.into_dyn())
-                .map_err(|e| eyre::eyre!("Failed to prepare inputs: {:?}", e))
-                .ok()?];
+            let inputs = ort::inputs![
+                ort::value::TensorRef::from_array_view(array.into_dyn())
+                    .map_err(|e| eyre::eyre!("Failed to prepare inputs: {:?}", e))
+                    .ok()?
+            ];
 
             let ort_outs = match session.run(inputs) {
                 Ok(outputs) => outputs,
@@ -98,7 +100,7 @@ pub fn get_segments<P: AsRef<Path>>(
             };
 
             let (shape, data) = ort_out; // (&Shape, &[f32])
-                                         // Fix: shape is &Shape, but from_shape expects &[usize]
+            // Fix: shape is &Shape, but from_shape expects &[usize]
             let shape_slice: Vec<usize> = (0..shape.len()).map(|i| shape[i] as usize).collect();
             let view =
                 ndarray::ArrayViewD::<f32>::from_shape(ndarray::IxDyn(&shape_slice), data).unwrap();

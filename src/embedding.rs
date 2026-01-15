@@ -1,5 +1,5 @@
 use crate::session;
-use eyre::{bail, eyre, Context, ContextCompat, Result};
+use eyre::{Context, ContextCompat, Result, bail, eyre};
 use kaldi_native_fbank::online::FeatureComputer;
 use kaldi_native_fbank::{FbankComputer, FbankOptions, OnlineFeature};
 use ndarray::Array2;

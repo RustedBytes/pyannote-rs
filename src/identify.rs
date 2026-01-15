@@ -1,4 +1,4 @@
-use eyre::{bail, Result};
+use eyre::{Result, bail};
 use ndarray::Array1;
 use std::collections::HashMap;
 

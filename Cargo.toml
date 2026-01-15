@@ -1,10 +1,10 @@
 [package]
-name = "pyannote-rs"
-version = "0.3.4"
-edition = "2021"
+name = "native-pyannote-rs"
+version = "0.1.0"
+edition = "2024"
 license = "MIT"
 description = "Speaker diarization using pyannote in Rust"
-repository = "https://github.com/thewh1teagle/pyannote-rs"
+repository = "https://github.com/RustedBytes/pyannote-rs"
 
 [dependencies]
 eyre = "0.6.12"

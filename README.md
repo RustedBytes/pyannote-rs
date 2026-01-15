@@ -1,4 +1,4 @@
-# pyannote-rs
+# native-pyannote-rs
 
 Pyannote audio diarization in Rust.
 

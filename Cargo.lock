@@ -262,6 +262,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "native-pyannote-rs"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "hound",
+ "kaldi-native-fbank",
+ "ndarray",
+ "ort",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -463,17 +474,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "535d180e0ecab6268a3e718bb9fd44db66bbbc256257165fc699dadf70d16fe7"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "pyannote-rs"
-version = "0.3.4"
-dependencies = [
- "eyre",
- "hound",
- "kaldi-native-fbank",
- "ndarray",
- "ort",
 ]
 
 [[package]]
