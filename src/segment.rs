@@ -1,5 +1,5 @@
 use crate::session;
-use eyre::{Context, ContextCompat, Result};
+use eyre::{bail, Context, ContextCompat, Result};
 use ndarray::{ArrayBase, Axis, IxDyn, ViewRepr};
 use std::{cmp::Ordering, collections::VecDeque, path::Path};
 
@@ -9,6 +9,22 @@ pub struct Segment {
     pub start: f64,
     pub end: f64,
     pub samples: Vec<i16>,
+}
+
+fn pad_to_window(samples: &[i16], window_size: usize) -> Vec<i16> {
+    if window_size == 0 {
+        return samples.to_vec();
+    }
+    let remainder = samples.len() % window_size;
+    if remainder == 0 {
+        return samples.to_vec();
+    }
+
+    let pad = window_size - remainder;
+    let mut padded = Vec::with_capacity(samples.len() + pad);
+    padded.extend_from_slice(samples);
+    padded.extend(std::iter::repeat(0).take(pad));
+    padded
 }
 
 fn find_max_index(row: ArrayBase<ViewRepr<&f32>, IxDyn>) -> Result<usize> {
@@ -29,6 +45,9 @@ pub fn get_segments<P: AsRef<Path>>(
     sample_rate: u32,
     model_path: P,
 ) -> Result<impl Iterator<Item = Result<Segment>> + '_> {
+    if sample_rate == 0 {
+        bail!("sample_rate cannot be zero");
+    }
     // Create session using the provided model path
     let mut session = session::create_session(model_path.as_ref())?;
 
@@ -41,11 +60,7 @@ pub fn get_segments<P: AsRef<Path>>(
     let mut start_offset = 0.0;
 
     // Pad end with silence for full last segment
-    let padded_samples = {
-        let mut padded = Vec::from(samples);
-        padded.extend(vec![0; window_size - (samples.len() % window_size)]);
-        padded
-    };
+    let padded_samples = pad_to_window(samples, window_size);
 
     let mut start_iter = (0..padded_samples.len()).step_by(window_size);
 
@@ -128,4 +143,26 @@ pub fn get_segments<P: AsRef<Path>>(
         }
         segments_queue.pop_front().map(Ok)
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pad_to_window;
+
+    #[test]
+    fn does_not_add_padding_when_aligned() {
+        let samples = vec![1i16; 20];
+        let padded = pad_to_window(&samples, 10);
+        assert_eq!(padded.len(), 20);
+        assert_eq!(padded, samples);
+    }
+
+    #[test]
+    fn pads_up_to_window_size() {
+        let samples = vec![1i16; 15];
+        let padded = pad_to_window(&samples, 10);
+        assert_eq!(padded.len(), 20);
+        assert_eq!(&padded[..15], samples.as_slice());
+        assert!(padded[15..].iter().all(|&x| x == 0));
+    }
 }

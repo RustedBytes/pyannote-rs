@@ -22,6 +22,9 @@ impl EmbeddingManager {
         let dot_product = a.dot(b);
         let norm_a = a.dot(a).sqrt();
         let norm_b = b.dot(b).sqrt();
+        if norm_a == 0.0 || norm_b == 0.0 {
+            return 0.0;
+        }
         dot_product / (norm_a * norm_b)
     }
 
@@ -76,5 +79,28 @@ impl EmbeddingManager {
     #[allow(unused)]
     pub fn get_all_speakers(&self) -> &HashMap<usize, Array1<f32>> {
         &self.speakers
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero_vectors_do_not_produce_nan() {
+        let a = Array1::from_vec(vec![0.0, 0.0]);
+        let b = Array1::from_vec(vec![0.0, 0.0]);
+        assert_eq!(EmbeddingManager::cosine_similarity(&a, &b), 0.0);
+    }
+
+    #[test]
+    fn search_speaker_adds_until_cap() {
+        let mut manager = EmbeddingManager::new(1);
+        let first = manager.search_speaker(vec![1.0, 0.0], 0.5);
+        assert_eq!(first, Some(1));
+
+        // Second unique embedding should be rejected because max_speakers is 1.
+        let second = manager.search_speaker(vec![0.0, 1.0], 0.5);
+        assert!(second.is_none());
     }
 }
