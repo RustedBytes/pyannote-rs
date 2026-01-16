@@ -59,9 +59,9 @@ The library ships with the ndarray (CPU) backend by default. To run the models o
 
 - **Apple Silicon (Metal via WGPU)**: change the backend aliases in `src/nn/mod.rs` to:
   ```rust
-  use burn::backend::wgpu::{AutoGraphicsApi, Wgpu, WgpuDevice};
+  use burn::backend::wgpu::{Wgpu, WgpuDevice};
 
-  pub type BurnBackend = Wgpu<f32, AutoGraphicsApi>;
+  pub type BurnBackend = Wgpu;
   pub type BurnDevice = WgpuDevice;
   ```
   and enable the WGPU feature: `burn = { version = "~0.20", features = ["wgpu"] }`. WGPU will pick Metal automatically on M1/M2 Macs.
@@ -75,7 +75,3 @@ The library ships with the ndarray (CPU) backend by default. To run the models o
   and enable CUDA JIT in Cargo: `burn = { version = "~0.20", features = ["cuda-jit"] }`. Ensure the NVIDIA driver and CUDA toolkit (12.x) are installed and visible to the build.
 
 After switching the backend and rebuilding dependencies, run any example in release mode to warm up kernels (first call will compile kernels): `cargo run --release --example infinite`.
-
-## Credits
-
-Big thanks to [pyannote-onnx](https://github.com/pengzhendong/pyannote-onnx) and [kaldi-native-fbank](https://github.com/csukuangfj/kaldi-native-fbank)
