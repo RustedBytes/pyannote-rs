@@ -6,6 +6,10 @@ license = "MIT"
 description = "Speaker diarization using pyannote in Rust"
 repository = "https://github.com/RustedBytes/pyannote-rs"
 
+exclude = [
+    "*.pbk",
+]
+
 [lib]
 name = "pyannote_rs"
 
