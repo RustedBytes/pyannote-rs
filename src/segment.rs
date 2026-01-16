@@ -1,7 +1,6 @@
-use crate::session;
+use crate::nn::{self, BurnBackend, BurnDevice};
 use anyhow::{Context, Result, anyhow, bail};
-use ndarray::{ArrayBase, Axis, IxDyn, ViewRepr};
-use ort::session::Session;
+use burn::tensor::{Tensor, TensorData};
 use std::{cmp::Ordering, collections::VecDeque, path::Path};
 
 #[derive(Debug, Clone)]
@@ -14,13 +13,20 @@ pub struct Segment {
 
 #[derive(Debug)]
 pub struct Segmenter {
-    session: Session,
+    model: nn::segmentation::Model<BurnBackend>,
+    device: BurnDevice,
 }
 
 impl Segmenter {
     pub fn new<P: AsRef<Path>>(model_path: P) -> Result<Self> {
-        let session = session::create_session(model_path.as_ref())?;
-        Ok(Self { session })
+        let device = BurnDevice::default();
+        let model_path = model_path
+            .as_ref()
+            .to_str()
+            .context("Model path must be valid UTF-8")?;
+        let model = nn::segmentation::Model::from_file(model_path, &device);
+
+        Ok(Self { model, device })
     }
 
     pub fn iter_segments<'a>(
@@ -45,7 +51,8 @@ impl Segmenter {
         let padded_samples = pad_to_window(samples, window_size);
 
         let mut start_iter = (0..padded_samples.len()).step_by(window_size);
-        let session = &mut self.session;
+        let model = &self.model;
+        let device = self.device.clone();
         let mut segments_queue = VecDeque::new();
 
         Ok(std::iter::from_fn(move || {
@@ -53,47 +60,44 @@ impl Segmenter {
                 let end = (start + window_size).min(padded_samples.len());
                 let window = &padded_samples[start..end];
 
-                let array = ndarray::Array1::from_iter(window.iter().map(|&x| x as f32));
-                let array = array.view().insert_axis(Axis(0)).insert_axis(Axis(1));
+                let mut window_f32 = Vec::with_capacity(window.len());
+                window_f32.extend(window.iter().map(|&x| x as f32));
 
-                let tensor = match ort::value::TensorRef::from_array_view(array.into_dyn()) {
-                    Ok(tensor) => tensor,
-                    Err(e) => return Some(Err(anyhow!("Failed to prepare inputs: {:?}", e))),
+                let data = TensorData::new(window_f32, [1, 1, window.len()]);
+                let input = Tensor::<BurnBackend, 3>::from_data(data, &device);
+                let output = model.forward(input);
+                let output_data = output.into_data();
+                let shape = output_data.shape.clone();
+
+                if shape.len() != 3 {
+                    return Some(Err(anyhow!(
+                        "Unexpected segmentation output shape: {:?}",
+                        shape
+                    )));
+                }
+
+                let batch = shape[0];
+                let frames = shape[1];
+                let classes = shape[2];
+
+                if classes == 0 {
+                    return Some(Err(anyhow!("Segmentation model returned zero classes")));
+                }
+
+                let values = match output_data.into_vec::<f32>() {
+                    Ok(values) => values,
+                    Err(err) => {
+                        return Some(Err(anyhow!("Failed to read model output: {err}")));
+                    }
                 };
 
-                let inputs = ort::inputs![tensor];
+                for batch_index in 0..batch {
+                    let batch_offset = batch_index * frames * classes;
+                    for frame_index in 0..frames {
+                        let start_idx = batch_offset + frame_index * classes;
+                        let class_scores = &values[start_idx..start_idx + classes];
 
-                let ort_outs = match session.run(inputs) {
-                    Ok(outputs) => outputs,
-                    Err(e) => return Some(Err(anyhow!("Failed to run the session: {:?}", e))),
-                };
-
-                let ort_out = match ort_outs.get("output").context("Output tensor not found") {
-                    Ok(output) => output,
-                    Err(e) => return Some(Err(anyhow!("Output tensor error: {:?}", e))),
-                };
-
-                let ort_out = match ort_out
-                    .try_extract_tensor::<f32>()
-                    .context("Failed to extract tensor")
-                {
-                    Ok(tensor) => tensor,
-                    Err(e) => return Some(Err(anyhow!("Tensor extraction error: {:?}", e))),
-                };
-
-                let (shape, data) = ort_out; // (&Shape, &[f32])
-                let shape_slice: Vec<usize> = (0..shape.len()).map(|i| shape[i] as usize).collect();
-                let view = match ndarray::ArrayViewD::<f32>::from_shape(
-                    ndarray::IxDyn(&shape_slice),
-                    data,
-                ) {
-                    Ok(view) => view,
-                    Err(e) => return Some(Err(e.into())),
-                };
-
-                for row in view.outer_iter() {
-                    for sub_row in row.axis_iter(Axis(0)) {
-                        let max_index = match find_max_index(sub_row) {
+                        let max_index = match find_max_index(class_scores) {
                             Ok(index) => index,
                             Err(e) => return Some(Err(e)),
                         };
@@ -159,17 +163,12 @@ fn pad_to_window(samples: &[i16], window_size: usize) -> Vec<i16> {
     padded
 }
 
-fn find_max_index(row: ArrayBase<ViewRepr<&f32>, IxDyn>) -> Result<usize> {
-    let (max_index, _) = row
-        .iter()
+fn find_max_index(row: &[f32]) -> Result<usize> {
+    row.iter()
         .enumerate()
-        .max_by(|a, b| {
-            a.1.partial_cmp(b.1)
-                .context("Comparison error")
-                .unwrap_or(Ordering::Equal)
-        })
-        .context("sub_row should not be empty")?;
-    Ok(max_index)
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Equal))
+        .map(|(index, _)| index)
+        .context("row should not be empty")
 }
 
 pub fn get_segments<P: AsRef<Path>>(

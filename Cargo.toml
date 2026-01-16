@@ -14,13 +14,23 @@ anyhow = "1"
 hound = "3.5.1"
 kaldi-native-fbank = "0.1.0"
 ndarray = "0.17"
-ort = { version = "2.0.0-rc.11", features = ["ndarray"] }
+
+burn = { version = "~0.20", features = ["ndarray"] }
+burn-store = { version = "~0.20", features = ["burnpack"] }
+# burn-import = "~0.20"
 
 [features]
 default = []
-coreml = ["ort/coreml"]
-directml = ["ort/directml"]
-load-dynamic = ["ort/load-dynamic"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+incremental = false
+
+[profile.bench]
+inherits = "release"
 
 [[example]]
 name = "max_speakers"

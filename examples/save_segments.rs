@@ -1,9 +1,8 @@
-/*
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/segmentation-3.0.onnx
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/wespeaker_en_voxceleb_CAM++.onnx
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/6_speakers.wav
-cargo run --example save_segments 6_speakers.wav
-*/
+// Models are loaded from src/nn/segmentation/model.bpk.
+// Sample audio:
+// wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/6_speakers.wav
+// cargo run --release --example save_segments 6_speakers.wav
+
 
 use anyhow::{Result, anyhow};
 use hound::{WavSpec, WavWriter};
@@ -29,7 +28,7 @@ pub fn write_wav(file_path: &str, samples: &[i16], sample_rate: u32) -> Result<(
 fn main() -> Result<()> {
     let audio_path = std::env::args().nth(1).expect("Please specify audio file");
     let (samples, sample_rate) = pyannote_rs::read_wav(&audio_path)?;
-    let mut segmenter = Segmenter::new("segmentation-3.0.onnx")?;
+    let mut segmenter = Segmenter::new("src/nn/segmentation/model.bpk")?;
 
     // Create a folder with the base name of the input file
     let output_folder = format!(

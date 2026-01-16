@@ -1,9 +1,6 @@
-/*
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/segmentation-3.0.onnx
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/wespeaker_en_voxceleb_CAM++.onnx
-wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/6_speakers.wav
-cargo run --example infinite 6_speakers.wav
-*/
+// Models are loaded from src/nn/*/model.bpk.
+// wget https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/6_speakers.wav
+// cargo run --example infinite 6_speakers.wav
 
 use anyhow::Result;
 use pyannote_rs::{EmbeddingExtractor, EmbeddingManager, Segmenter};
@@ -35,8 +32,8 @@ fn main() -> Result<()> {
     let audio_path = std::env::args().nth(1).expect("Please specify audio file");
     let search_threshold = 0.5;
 
-    let embedding_model_path = "wespeaker_en_voxceleb_CAM++.onnx";
-    let segmentation_model_path = "segmentation-3.0.onnx";
+    let embedding_model_path = "src/nn/speaker_identification/model.bpk";
+    let segmentation_model_path = "src/nn/segmentation/model.bpk";
 
     let (samples, sample_rate) = pyannote_rs::read_wav(&audio_path)?;
     let mut embedding_extractor = EmbeddingExtractor::new(embedding_model_path)?;
